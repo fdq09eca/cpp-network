@@ -26,7 +26,7 @@ struct MyMail {
     std::vector<std::string> to;
     std::string data;
     
-    void reset(){
+    void clear(){
         from.clear();
         to.clear();
         data.clear();
@@ -80,13 +80,8 @@ public:
         state = State::READY;
     }
     
-    void close() {
-        _sock.close();
-    }
-    
-    bool isValid(){
-        return _sock.sock() != INVALID_SOCKET;
-    }
+    void close() { _sock.close(); }
+    bool isValid(){ return _sock.sock() != INVALID_SOCKET; }
     
     
     
@@ -108,15 +103,22 @@ public:
         }
         
         else if (tokenBuff == "MAIL") {
-            if (state != State::EHLO)    { sendBadSeqCmd(); return; }
+            if (state != State::EHLO)    {
+                if (state != State::MAIL) {
+                    sendBadSeqCmd();
+                    return;
+                }
+            }
+            
             state = State::MAIL;
+            _mail.clear();
             
             const char* e = lineBuff.data() + lineBuff.size();
-            const char* s = lineBuff.data() + tokenBuff.size() + 1;
+            const char* s = lineBuff.data() + tokenBuff.size();
             std::string buff;
             s = MyUtil::getToken(buff, s, ':');
             
-            if (buff != "FROM") {
+            if (!s || buff != "FROM") {
                 sendSyntaxError();
                 return;
             }
@@ -137,12 +139,12 @@ public:
             }
             
             const char* e = lineBuff.data() + lineBuff.size();
-            const char* s = lineBuff.data() + tokenBuff.size() + 1;
+            const char* s = lineBuff.data() + tokenBuff.size();
             
             std::string buff;
             s = MyUtil::getToken(buff, s, ':');
 
-            if (buff != "TO") {
+            if (!s || buff != "TO") {
                 sendSyntaxError();
                 return;
             }
@@ -154,8 +156,8 @@ public:
         
         else if (tokenBuff == "RSET") {
             // https://datatracker.ietf.org/doc/html/rfc5321#autoid-55
-            _mail.reset();
-            state = State::EHLO;
+            _mail.clear();
+            state = State::MAIL;
             sendOK();
             return;
         }
@@ -191,17 +193,15 @@ public:
             // https://datatracker.ietf.org/doc/html/rfc5321#autoid-60
             send("221 Bye\r\n");
             close();
-            printf("mail.data: \n <<%s>>\n", _mail.data.data());
         } else {
             send("500 Syntax error command unrecognized\r\n");
         }
     }
-    
-    
-    
+
     void sendOK()           { send("250 OK\r\n"); }
-    void sendBadSeqCmd()    { send("503 Bad sequence of commands\r\n"); }
+    void sendBadSeqCmd()    { send("503 Bad sequence of commands\r\n" ); }
     void sendSyntaxError()  { send("501 Syntax error in parameters or arguments\r\n"); }
+    
     
     void getToken(char sep = ' '){
         tokenBuff.clear();
@@ -233,20 +233,20 @@ public:
         printf("[getToken] %s\n", tokenBuff.data());
     }
     
-    bool getLine(size_t lineStartPos, const char* lineEndChar = "\r\n"){
-        size_t lineEndPos = recvBuff.find(lineEndChar, lineStartPos);
+    bool getLine(size_t offset, const char* lineEndChar = "\r\n"){
+        size_t lineEndPos = recvBuff.find(lineEndChar, offset);
         
         if (lineEndPos == std::string::npos) {
             return false;
         } else {
-            MY_ASSERT(lineEndPos >= lineStartPos);
+            MY_ASSERT(lineEndPos >= offset);
             lineBuff.clear();
             
-            char* s = recvBuff.data() + lineStartPos;
+            char* s = recvBuff.data() + offset;
             char* e = recvBuff.data() + lineEndPos;
             
             lineBuff.assign(s, e);
-            
+            printf("[getLine] %s\n", lineBuff.c_str());
             return true;
         }
     }
