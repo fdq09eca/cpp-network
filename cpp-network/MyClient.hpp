@@ -13,7 +13,7 @@
 
 enum class State {
     UNKNOWN = 0,
-    CONNECT,
+    READY,
     EHLO,
     MAIL,
     RCPT,
@@ -42,7 +42,7 @@ private:
     std::string tokenBuff;
     State state = State::UNKNOWN;
     MyMail _mail;
-    
+    size_t recvOffSet = 0;
     
     
 public:
@@ -77,6 +77,7 @@ public:
         //send smtp greeting
         printf("[client] %p connected.\n", this);
         send("220 smtp.example.com ESMTP Postfix\r\n");
+        state = State::READY;
     }
     
     void close() {
@@ -90,26 +91,22 @@ public:
     
     
     void onRecvCommand(){
-        
-        if (state == State::DATA) {
-            // TODO: handle data
-            return;
-        }
-        
         printf("[onRecvCommand (len: %zu)] %s\n", lineBuff.size(), lineBuff.data());
         getToken();
         
         if (tokenBuff == "DATA") {
             if (state != State::RCPT)       { sendBadSeqCmd(); return; }
-            send("354 \r\n");
+            send("354 End data with <CR><LF>.<CR><LF>\r\n");
             state = State::DATA;
             return;
         }
+        
         else if (tokenBuff == "EHLO" || tokenBuff == "HELO") {
-            if (state != State::CONNECT)    { sendBadSeqCmd(); return; }
+            if (state != State::READY)    { sendBadSeqCmd(); return; }
             state = State::EHLO;
             sendOK();
         }
+        
         else if (tokenBuff == "MAIL") {
             if (state != State::EHLO)    { sendBadSeqCmd(); return; }
             state = State::MAIL;
@@ -125,13 +122,19 @@ public:
             }
             
             _mail.from.assign(s + 1, e);
+            printf("[mail.from] %s\n", _mail.from.c_str());
             sendOK();
         }
         
         else if (tokenBuff == "RCPT") {
-            if (state != State::MAIL || state != State::RCPT)    { sendBadSeqCmd(); return; }
-            
-            state = State::RCPT;
+            if (state != State::RCPT)    {
+                if (state == State::MAIL) {
+                    state = State::RCPT;
+                } else {
+                    sendBadSeqCmd();
+                    return;
+                }
+            }
             
             const char* e = lineBuff.data() + lineBuff.size();
             const char* s = lineBuff.data() + tokenBuff.size() + 1;
@@ -145,7 +148,7 @@ public:
             }
 
             auto& b = _mail.to.emplace_back(s + 1, e);
-            printf("[mail.to] %s", b.c_str());
+            printf("[mail.to] %s\n", b.c_str());
             sendOK();
         }
         
@@ -188,30 +191,17 @@ public:
             // https://datatracker.ietf.org/doc/html/rfc5321#autoid-60
             send("221 Bye\r\n");
             close();
+            printf("mail.data: \n <<%s>>\n", _mail.data.data());
         } else {
             send("500 Syntax error command unrecognized\r\n");
         }
     }
     
-    const char* lineEndChar(){
-        if (state == State::DATA) {
-            return "\r\n.\r\n";
-        } else {
-            return "\r\n";
-        }
-    }
     
-    void sendOK(){
-        send("200 OK\r\n");
-    }
     
-    void sendBadSeqCmd(){
-        send("503 Bad sequence of commands\r\n");
-    }
-    
-    void sendSyntaxError(){
-        send("501 Syntax error in parameters or arguments\r\n");
-    }
+    void sendOK()           { send("250 OK\r\n"); }
+    void sendBadSeqCmd()    { send("503 Bad sequence of commands\r\n"); }
+    void sendSyntaxError()  { send("501 Syntax error in parameters or arguments\r\n"); }
     
     void getToken(char sep = ' '){
         tokenBuff.clear();
@@ -237,6 +227,7 @@ public:
                 continue;
             }
         }
+        
         MY_ASSERT(e >= s);
         tokenBuff.assign(s, e);
         printf("[getToken] %s\n", tokenBuff.data());
@@ -260,6 +251,18 @@ public:
         }
     }
     
+    void onRecvData(){
+        MY_ASSERT(state == State::DATA);
+        size_t endPos = recvBuff.find("\r\n.\r\n", recvOffSet);
+        if (endPos == std::string::npos)
+            return;
+        
+        _mail.data.assign(recvBuff.data() + recvOffSet, recvBuff.data() + endPos);
+        recvOffSet += _mail.data.size() + 5;
+        sendOK();
+        state = State::READY;
+    }
+    
     void onRecv() {
         
         size_t n = _sock.nByteToRead();
@@ -268,32 +271,31 @@ public:
             return;
         }
         
-        recvBuff.clear();
-        size_t lineStartPos = 0;
-        
-        
         size_t oldSize = recvBuff.size();
         size_t newSize = oldSize + n;
-        
         recvBuff.resize(newSize);
         
+        auto* recvPtr = recvBuff.data() + oldSize;
+        ssize_t r = _sock.recv((uint8_t*) recvPtr, n);
         
-        ssize_t r = _sock.recv((uint8_t*) recvBuff.data() + oldSize, n);
+        std::cout << "[recvBuff] " << recvBuff;
         
-        recvBuff.resize(r);
-        
-        while (true) {
-            bool result = getLine(lineStartPos, lineEndChar());
-            
-            if (!result)
-                return;
-            
-            onRecvCommand();
-            lineStartPos += lineBuff.size() + 2;
+        if (state == State::DATA) {
+            onRecvData();
+            return;
         }
         
-        printf("[client %p] onRecv (%zu): %s\n",
-               this, r, recvBuff.c_str());
+        while (true) {
+            
+            bool result = getLine(recvOffSet, "\r\n");
+            
+            if (!result) return;
+            
+            recvOffSet += lineBuff.size() + 2;
+            onRecvCommand();
+        }
+        
+        printf("[client %p] onRecv (%zu): %s\n", this, r, recvBuff.c_str());
     }
 };
 

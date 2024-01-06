@@ -112,44 +112,88 @@ void test_lookup(){
     
 }
 
-void test_server(const char* send_c_str_msg = nullptr, const char* expect_result = nullptr, size_t n_iter = 3){
-    puts("test_server_connection");
+void test_InitRecvLoop(MySocket& s, std::vector<uint8_t>& recvBuff, size_t sec = 3) {
+    recvBuff.clear();
+    for(int i = 0; i < sec; i++) {
+        size_t n = s.nByteToRead();
+        if (n == 0) {
+            my_sleep(1);
+            continue;
+        }
+        auto r = s.recv(recvBuff, n);
+        MY_ASSERT(r >= 0);
+        recvBuff.push_back(0);
+        break;
+    }
+}
+
+void test_result(const char* actual_result, const char* expect_result, const char* testname){
+        if (strcmp(actual_result, expect_result) == 0) {
+            printf("[OK] %s\n", testname);
+        } else {
+            printf("[FAIL] %s\nactual_result: [%s]\n expect_result: [%s]", testname, actual_result, expect_result);
+        }
+}
+
+
+void test_SMTP_normal(){
+    // arrange
     MySocket s;
     s.createTCP();
     s.connectIPv4("localhost", 2525);
     std::vector<uint8_t> recvBuff;
     
-    if (send_c_str_msg) {
-        s.send_c_str(send_c_str_msg);
-    }
+    test_InitRecvLoop(s, recvBuff);
+    test_result((char*) recvBuff.data(), "220 smtp.example.com ESMTP Postfix\r\n", "test_SMTP::WELCOME_MSG");
     
-    // recv loop
-    for(int i = 0; i < n_iter; i++) {
-        size_t n = s.nByteToRead();
-        if (n == 0) {
-            my_sleep(1);
-            printf(".");
-            continue;
-        }
-//        puts("recv...\n");
-        auto r = s.recv(recvBuff, n);
-        recvBuff.push_back(0);
-        printf("[recv (%lu/%lu)] %s", r, n, recvBuff.data());
-        break;
-    }
+    // EHLO
+    s.send_c_str("EHLO \r\n");
+    test_InitRecvLoop(s, recvBuff);
+    test_result((char*) recvBuff.data(), "250 OK\r\n", "test_SMTP::EHLO");
     
-    if (expect_result) {
-        std::string actual_result;
-        char* p = (char*) recvBuff.data();
-        actual_result.assign(p, p + recvBuff.size());
-        if (strcmp(actual_result.data(), expect_result) == 0) {
-            printf("[OK] %s == %s\n", actual_result.data(), expect_result);
-        } else {
-            printf("[FAIL] %s != %s\n", actual_result.data(), expect_result);
-        }
-    }
+    // MAIL
+    s.send_c_str("MAIL FROM:<bob@example.org>\r\n");
+    test_InitRecvLoop(s, recvBuff);
+    test_result((char*) recvBuff.data(), "250 OK\r\n", "test_SMTP::MAIL");
     
+    // RCPT
+    s.send_c_str("RCPT TO:<alice@example.com>\r\n");
+    test_InitRecvLoop(s, recvBuff);
+    test_result((char*) recvBuff.data(), "250 OK\r\n", "test_SMTP::RCPT");
+    
+    // RCPT
+    s.send_c_str("RCPT TO:<theboss@example.com>\r\n");
+    test_InitRecvLoop(s, recvBuff);
+    test_result((char*) recvBuff.data(), "250 OK\r\n", "test_SMTP::RCPT");
+    
+    // DATA
+    s.send_c_str("DATA \r\n");
+    test_InitRecvLoop(s, recvBuff);
+    test_result((char*) recvBuff.data(), "354 End data with <CR><LF>.<CR><LF>\r\n", "test_SMTP::DATA");
+    
+    
+    // DATA-CONTENT
+    s.send_c_str("From: \"Bob Example\" <bob@example.org>\r\n");
+    s.send_c_str("To: \"Alice Example\" <alice@example.com>\r\n");
+    s.send_c_str("Cc: theboss@example.com\r\n");
+    s.send_c_str("Date: Tue, 15 Jan 2008 16:02:43 -0500\r\n");
+    s.send_c_str("Subject: Test message\r\n");
+    s.send_c_str("\r\n");
+    s.send_c_str("Hello Alice.\r\n");
+    s.send_c_str("This is a test message with 5 header fields and 4 lines in the message body.\r\n");
+    s.send_c_str("Your friend,\r\n");
+    s.send_c_str("Bob\r\n");
+    s.send_c_str(".\r\n");
+    
+    test_InitRecvLoop(s, recvBuff);
+    test_result((char*) recvBuff.data(), "250 OK\r\n", "test_SMTP::DATA-CONTENT");
+    
+    s.send_c_str("QUIT \r\n");
+    test_InitRecvLoop(s, recvBuff);
+    test_result((char*) recvBuff.data(), "221 Bye\r\n", "test_SMTP::QUIT");
 }
+
+
 
 int main(int argc, const char * argv[]) {
     if (argc > 1 && 0 == strcmp(argv[1], "--server")) {
@@ -157,17 +201,7 @@ int main(int argc, const char * argv[]) {
             server.run(2525);
             
     } else {
-
-//         test_server(nullptr, "220 smtp.example.com ESMTP Postfix\r\n"); // OK
-         
-//        test_server("token1 123\r\n", nullptr); // OK
-//        test_server("    token1 123\r\n", nullptr); // OK
-//        test_server("token1 123\r\ntoken2 312\r\n", nullptr); // OK
-//        test_server("    token1 123\r\n   token2 312\r\n", nullptr);
-        
-        
-        
-//        printf("Client!\n");
+        test_SMTP_normal();
     }
     
 

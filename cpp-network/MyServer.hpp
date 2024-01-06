@@ -16,9 +16,6 @@
 #include <unistd.h>
 #include "MyClient.hpp"
 
-
-
-
 class MyServer : NonCopyable {
 private:
     
@@ -80,10 +77,7 @@ public:
             
             int ret = ::select(max_fd + 1, &readfds, nullptr, nullptr, &tv);
             
-            if (ret <  0) {
-                throw MyError("select");
-            }
-            
+            if (ret <  0) { throw MyError("select"); }
             if (ret == 0) { continue; }
             
             
