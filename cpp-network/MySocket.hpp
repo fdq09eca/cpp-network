@@ -35,7 +35,9 @@ public:
     
     void operator=(MySocket&& r) {
         
-        MY_ASSERT(r._sock != _sock);
+        MY_ASSERT(
+                  (_sock == INVALID_SOCKET && r._sock == INVALID_SOCKET)
+                  || r._sock != _sock);
         
         close();
         _sock = r._sock;

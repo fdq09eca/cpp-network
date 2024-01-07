@@ -36,31 +36,19 @@ struct MyMail {
 class MyClient : public NonCopyable {
     friend class MyServer;
 private:
-    MySocket _sock;
-    std::string recvBuff;
-    std::string lineBuff;
-    std::string tokenBuff;
-    State state = State::UNKNOWN;
-    MyMail _mail;
+    MySocket _sock; // <-- moveable
+    std::string recvBuff; // <-- moveable
+    std::string lineBuff; // <-- moveable
+    std::string tokenBuff; // <-- moveable
+    State state = State::UNKNOWN; // <-- moveable
+    MyMail _mail; // <-- moveable
     size_t recvOffSet = 0;
-    
-    
+
+
 public:
     MyClient() = default;
     
     MyClient(SOCKET raw_sock) : _sock(raw_sock) { }
-    
-    MyClient(MyClient&& rhs){
-        *this = std::move(rhs);
-    }
-    
-    void operator=(MyClient&& rhs) {
-        _sock = std::move(rhs._sock);
-    }
-    
-    bool operator==( const MyClient& rhs) {
-        return _sock == rhs._sock;
-    }
     
     SOCKET sock() { return _sock.sock(); }
     
@@ -217,19 +205,19 @@ public:
         }
         
         
-        char* e = s;
-        while (*e) {
-            if (*e == sep)
+        char* c = s;
+        while (*c) {
+            if (*c == sep)
                 break;
             
-            if (isalnum(*e)) {
-                e++;
+            if (isalnum(*c)) {
+                c++;
                 continue;
             }
         }
         
-        MY_ASSERT(e >= s);
-        tokenBuff.assign(s, e);
+        MY_ASSERT(c >= s);
+        tokenBuff.assign(s, c);
         printf("[getToken] %s\n", tokenBuff.data());
     }
     

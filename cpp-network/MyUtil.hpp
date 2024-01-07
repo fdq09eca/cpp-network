@@ -34,6 +34,10 @@ public:
 class NonCopyable {
 public:
     NonCopyable() = default;
+    NonCopyable(NonCopyable&& rhs) = default;
+    
+    void operator=(NonCopyable&& rhs) {};
+    
     
 private:
     NonCopyable(const NonCopyable&) = delete;
@@ -67,18 +71,22 @@ public:
         out_buff.clear();
         
         auto* s = trimFront(line);
-        auto* p = s;
+        auto* c = s;
         
-        while (*p) {
-            if (*p == sep) {
-                out_buff.assign(s, p);
-                return p; // return sep ptr;
+        while (*c) {
+            if (*c == sep) {
+                out_buff.assign(s, c);
+                return c; // return sep ptr;
             } else {
-                p++;
+                c++;
             }
         }
         
         return nullptr; // no found sep
+    }
+    
+    static void remove_unorder(){
+        // TODO: implement swap and remove
     }
     
 };
