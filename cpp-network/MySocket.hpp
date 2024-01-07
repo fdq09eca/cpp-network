@@ -79,10 +79,7 @@ public:
     
     ssize_t recvfrom(SocketAddress& out_sa, std::vector<uint8_t>& out_recvBuff, size_t n);
     ssize_t recv(std::vector<uint8_t>& out_recvBuff, size_t n);
-    
-    
 
-    
     void connect(SocketAddress& sa);
     void connectIPv4(const char * hostname, uint16_t port);
     
@@ -92,9 +89,6 @@ public:
     size_t nByteToRead();
     
     void close();
-    
-    
-
 };
 
 #endif /* MySocket_hpp */

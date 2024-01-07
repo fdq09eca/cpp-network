@@ -93,8 +93,8 @@ void test_lookup(){
     s.createTCP();
     s.connectIPv4("www.gov.hk", 80);
     s.send_c_str("GET /index.html HTTP/1.1\r\n"
-                        "Host: www.gov.hk\r\n"
-                        "\r\n");
+                 "Host: www.gov.hk\r\n"
+                 "\r\n");
     
     std::vector<uint8_t> buff;
     
@@ -128,11 +128,11 @@ void test_InitRecvLoop(MySocket& s, std::vector<uint8_t>& recvBuff, size_t sec =
 }
 
 void test_result(const char* actual_result, const char* expect_result, const char* testname){
-        if (strcmp(actual_result, expect_result) == 0) {
-            printf("[OK] %s\n", testname);
-        } else {
-            printf("[FAIL] %s\nactual_result: [%s]\n expect_result: [%s]", testname, actual_result, expect_result);
-        }
+    if (strcmp(actual_result, expect_result) == 0) {
+        printf("[OK] %s\n", testname);
+    } else {
+        printf("[FAIL] %s\nactual_result: [%s]\n expect_result: [%s]", testname, actual_result, expect_result);
+    }
 }
 
 
@@ -197,9 +197,9 @@ void test_SMTP_normal(){
 
 int main(int argc, const char * argv[]) {
     if (argc > 1 && 0 == strcmp(argv[1], "--server")) {
-            MyServer server;
-            server.run(2525);
-            
+        MyServer server;
+        server.run(2525);
+        
     } else {
         test_SMTP_normal();
     }

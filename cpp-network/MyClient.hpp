@@ -36,12 +36,12 @@ struct MyMail {
 class MyClient : public NonCopyable {
     friend class MyServer;
 private:
-    MySocket _sock; // <-- moveable
-    std::string recvBuff; // <-- moveable
-    std::string lineBuff; // <-- moveable
-    std::string tokenBuff; // <-- moveable
-    State state = State::UNKNOWN; // <-- moveable
-    MyMail _mail; // <-- moveable
+    MySocket _sock;
+    std::string recvBuff;
+    std::string lineBuff;
+    std::string tokenBuff;
+    State state = State::UNKNOWN;
+    MyMail _mail;
     size_t recvOffSet = 0;
 
 
@@ -52,14 +52,9 @@ public:
     
     SOCKET sock() { return _sock.sock(); }
     
-    void send(std::string msg) {
-        _sock.send_c_str(msg.c_str());
-    }
+    void send(std::string msg) { _sock.send_c_str(msg.c_str()); }
     
-    
-    void setSock(MySocket&& sock) {
-        _sock = std::move(sock);
-    }
+    void setSock(MySocket&& sock) { _sock = std::move(sock); }
     
     void onConnect(){
         //send smtp greeting
@@ -204,7 +199,6 @@ public:
             }
         }
         
-        
         char* c = s;
         while (*c) {
             if (*c == sep)
@@ -266,7 +260,7 @@ public:
         auto* recvPtr = recvBuff.data() + oldSize;
         ssize_t r = _sock.recv((uint8_t*) recvPtr, n);
         
-        std::cout << "[recvBuff] " << recvBuff;
+        std::cout << "[recvBuff] " << recvBuff; //TODO: start using libfmt
         
         if (state == State::DATA) {
             onRecvData();
