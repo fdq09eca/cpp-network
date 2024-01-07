@@ -82,9 +82,10 @@ public:
         
         return nullptr; // no found sep
     }
-    
-    static void remove_unorder(){
-        // TODO: implement swap and remove
+    template<typename T>
+    static void remove_unorder(std::vector<T>& vec, T& e){
+        if (&e != &vec.back()) std::swap(e, vec.back());
+        vec.resize(vec.size() - 1);
     }
     
 };

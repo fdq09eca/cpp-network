@@ -59,17 +59,7 @@ public:
                 } else {
                     // remove invalid client
                     // TODO: make a remove_unorder function.
-                    if (&client == &clients.back()) {
-                        clients.resize(clients.size() - 1);
-                        printf("[client %p] removed\n", &client); // ptr is not valid anymore..
-                        continue;
-                    }
-                        
-                    if (clients.size() > 1) {
-                        std::swap(client, clients.back());
-                    }
-                    
-                    clients.resize(clients.size() - 1);
+                    MyUtil::remove_unorder(clients, client);
                     printf("[client %p] removed, current clients size: %zu\n", // ptr is not valid anymore..
                            &client, clients.size());
                 }
